@@ -20,7 +20,7 @@ master_df_filename = askopenfilename(initialdir='/media/wdrive/storyboards/',
                                )
 
 master_df = pd.read_excel(master_df_filename)
-master_df['Report Date'] = pd.to_datetime(master_df['Report Date'], format='%Y-%m-%d').dt.strftime('%m/%y')
+master_df['Report Date'] = pd.to_datetime(master_df['Report Date'], format='%Y-%m-%d')
 print(master_df['Report Date'].value_counts())
 
 
@@ -37,14 +37,19 @@ def page_1_piv(df):
                                                           'Additional WTE'], aggfunc=np.sum).round(0)
 
     piv.reset_index(inplace=True)
+    piv.sort_values('Report Date', ascending=False, inplace=True)
+    piv['Report Date'] = piv['Report Date'].dt.strftime('%b-%y')
     return piv
 
 def page_2_piv(df):
     piv = pd.pivot_table(df, index='Report Date', values=['WTE', 'Starters WTE', 'Leavers WTE'], aggfunc=np.sum).round(0)
     piv = piv.round(1)
+
     piv['Starters %'] = (piv['Starters WTE'] / piv['WTE'] * 100).round(1)
     piv['Leavers %'] = (piv['Leavers WTE'] / piv['WTE'] * 100).round(1)
     piv.reset_index(inplace=True)
+    piv.sort_values('Report Date', ascending=False, inplace=True)
+    piv['Report Date'] = piv['Report Date'].dt.strftime('%b-%y')
     return piv
 
 def page_3_piv(df):
@@ -63,6 +68,8 @@ def page_3_piv(df):
         'Other Percent':'Other %'
     })
     piv.reset_index(inplace=True)
+    piv.sort_values('Report Date', ascending=False, inplace=True)
+    piv['Report Date'] = piv['Report Date'].dt.strftime('%b-%y')
     return piv
 
 
