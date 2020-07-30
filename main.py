@@ -5,7 +5,7 @@ import numpy as np
 import os
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
 from reportlab.lib.pagesizes import letter, A4
-from reportlab.lib import colors
+from reportlab.lib import colors, utils
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, cm
@@ -65,17 +65,19 @@ def page_3_piv(df):
     for column in ['Absence WTE Short', 'Absence WTE Long','Absence WTE', 'Annual WTE', 'Maternity WTE',
               'Paternal WTE', 'Parental WTE','Public Holiday WTE', 'Study WTE', 'Special WTE', 'Other WTE', 'WTE']:
         piv[column] = (piv[column] / piv['WTE'] * 100).round(1)
-    piv = piv.rename(columns={
-        'Absence WTE Short':'SickAbs Short %', 'Absence WTE Long':'SickAbs Long %',
-        'Absence WTE':'Sickness Abs %', 'Annual WTE':'Annual Leave %', 'Maternity WTE':'Maternity %',
-        'Paternal WTE':'Paternity %', 'Parental WTE': 'Parental %',
-        'Public Holiday WTE':'Public Holiday %', 'Study WTE':'Study %', 'Special WTE':'Special %',
-        'Other WTE':'Other %'
-    })
+
 
     piv.reset_index(inplace=True)
-    piv.sort_values('Report Date', ascending=False, inplace=True)
-    piv['Report Date'] = piv['Report Date'].dt.strftime('%b-%y')
+    piv = piv.rename(columns={
+        'Absence WTE Short': 'Short %', 'Absence WTE Long': 'Long %',
+        'Absence WTE': 'SickAbs %', 'Annual WTE': 'Annual %', 'Maternity WTE': 'Maternity %',
+        'Paternal WTE': 'Paternity %', 'Parental WTE': 'Parental %',
+        'Public Holiday WTE': 'Pub Hol %', 'Study WTE': 'Study %', 'Special WTE': 'Special %',
+        'Other WTE': 'Other %', 'Report Date': 'Month'
+    })
+
+    piv.sort_values('Month', ascending=False, inplace=True)
+    piv['Month'] = piv['Month'].dt.strftime('%b-%y')
     return piv
 
 def page_1_bargraph(piv, sector):
@@ -91,7 +93,7 @@ def page_1_bargraph(piv, sector):
 
     x = np.arange(len(months))
     width = 0.35
-
+    plt.style.use('seaborn-pastel')
     fig, ax = plt.subplots()
     rects1 = ax.bar(x - width/2, headcount, width, label = 'Headcount')
     rects2 = ax.bar(x + width/2, WTE, width, label='WTE')
@@ -112,8 +114,8 @@ def page_1_bargraph(piv, sector):
                         textcoords = "offset points",
                         ha='center', va='bottom')
         plt.hlines(avg, -1, len(months), colors=colour, linestyles='dashed', label=label)
-    autolabel(rects1, hc_avg, 'C0', 'Headcount Average')
-    autolabel(rects2, WTE_avg, 'C1', 'WTE Average')
+    # autolabel(rects1, hc_avg, 'C0', 'Headcount Average')
+    # autolabel(rects2, WTE_avg, 'C1', 'WTE Average')
     fig.tight_layout()
     plt.savefig('/media/wdrive/Storyboards/Test_Boards/graphs/'+sector+'-page1-bar.png', dpi=300)
 
@@ -132,7 +134,7 @@ def page_1_stackedbar(piv, sector):
     bars1 = np.add(bank, ot).tolist()
     bars2 = np.add(bars1, excess).tolist()
 
-
+    plt.style.use('seaborn-pastel')
     width = 0.35
     fig, ax = plt.subplots()
     ax.bar(months, bank, width, label='Bank WTE')
@@ -144,14 +146,46 @@ def page_1_stackedbar(piv, sector):
     ax.legend()
     plt.savefig('/media/wdrive/Storyboards/Test_Boards/graphs/'+sector+'-page1-stackedbar.png', dpi=300)
 
+def page_2_twoaxes(piv, sector):
+    wte = piv['WTE'].tolist()
+    starters = piv['Starters WTE'].tolist()
+    leavers = piv['Leavers WTE'].tolist()
+    months = piv['Report Date'].tolist()
+    for i in [wte, starters, leavers, months]:
+        i.reverse()
+    plt.style.use('seaborn-pastel')
+    width = 0.35
+    fig, ax1 = plt.subplots()
+    ax2 = ax1.twinx()
+    x = np.arange(len(months))
+    ax1.bar(x + width / 3, wte, width / 3, label='WTE', color='C2')
+    ax2.bar(x - width / 3, starters, width/3, label='Starters WTE', color = 'C0')
+    ax2.bar(x, leavers, width/3, label='Leavers WTE', color= 'C1')
+
+
+    ax1.set_title(sector + ' Starters & Leavers')
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(months, rotation=45, fontsize=8)
+
+    ax1.set_ylabel('WTE')
+    ax2.set_ylabel('Starter/Leaver WTE')
+
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines + lines2, labels + labels2)
+    plt.savefig('/media/wdrive/Storyboards/Test_Boards/graphs/'+sector+'-page2-twoaxes.png', dpi=300)
+
+
+
 def page3_sickabsGraph(piv, sector):
 
-    WTE_Long = piv['SickAbs Long %'].tolist()
-    WTE_Short = piv['SickAbs Short %'].tolist()
-    months = piv['Report Date'].tolist()
+    WTE_Long = piv['Long %'].tolist()
+    WTE_Short = piv['Short %'].tolist()
+    months = piv['Month'].tolist()
     for i in [WTE_Long, WTE_Short, months]:
         i.reverse()
     width = 0.35
+    plt.style.use('seaborn-pastel')
     fig, ax = plt.subplots()
     ax.bar(months, WTE_Short, width, label='Absence WTE Long %')
     ax.bar(months, WTE_Long, width, label='Absence WTE Short %', bottom = WTE_Short)
@@ -166,10 +200,10 @@ def page_3_otherleavegraph(piv, sector):
     maternity = piv['Maternity %'].tolist()
     study = piv['Study %'].tolist()
     parental = piv['Parental %'].tolist()
-    public = piv['Public Holiday %'].tolist()
+    public = piv['Pub Hol %'].tolist()
     other = piv['Other %'].tolist()
     paternal = piv['Paternity %'].tolist()
-    months = piv['Report Date'].tolist()
+    months = piv['Month'].tolist()
     for i in [special, maternity, study, parental, public, other, paternal, months]:
         i.reverse()
     bars1 = np.add(special, maternity).tolist()
@@ -177,27 +211,28 @@ def page_3_otherleavegraph(piv, sector):
     bars3 = np.add(bars2, parental).tolist()
     bars4 = np.add(bars3, public).tolist()
     bars5 = np.add(bars4, other).tolist()
-
+    plt.style.use('seaborn-pastel')
     width = 0.35
     fig, ax = plt.subplots()
-    ax.bar(months, special, width, label='Special WTE %')
-    ax.bar(months, maternity, width, label='Maternity WTE %', bottom=special)
-    ax.bar(months, study, width, label='Study WTE %', bottom=bars1)
-    ax.bar(months, parental, width, label='Parental WTE %', bottom=bars2)
-    ax.bar(months, public, width, label='Public Holiday WTE %', bottom=bars3)
-    ax.bar(months, other, width, label='Other Leave WTE %', bottom=bars4)
-    ax.bar(months, paternal, width, label='Paternal WTE %', bottom=bars5)
+    ax.bar(months, special, width, label='Special%')
+    ax.bar(months, maternity, width, label='Maternity %', bottom=special)
+    ax.bar(months, study, width, label='Study %', bottom=bars1)
+    ax.bar(months, parental, width, label='Parental %', bottom=bars2)
+    ax.bar(months, public, width, label='Public Hol %', bottom=bars3)
+    ax.bar(months, other, width, label='Other %', bottom=bars4)
+    ax.bar(months, paternal, width, label='Paternal %', bottom=bars5)
     ax.set_title(sector + ' Other Leave')
     ax.set_xticklabels(months, rotation=45, fontsize=8)
     ax.legend()
     plt.savefig('/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + '-page3-otherleave.png', dpi=300)
 
 def page3_annualleavegraph(piv, sector):
-    annual = piv['Annual Leave %'].tolist()
-    months = piv['Report Date'].tolist()
+    annual = piv['Annual %'].tolist()
+    months = piv['Month'].tolist()
     annual.reverse()
     months.reverse()
     width = 0.35
+    plt.style.use('seaborn-pastel')
     fig, ax = plt.subplots()
     ax.bar(months, annual, width, label = 'Annual Leave WTE %')
     ax.set_title(sector + ' Annual Leave')
@@ -225,6 +260,19 @@ print(page_3_piv(df))
 
 #TODO page 1 graphs
 
+def verticalimage_combine(image1, image2):
+    image1 = img2.open(image1)
+    image2 = img2.open(image2)
+    final = img2.new('RGB', (image1.width, image1.height + image2.height))
+    final.paste(image1, (0, 0))
+    final.paste(image2, (0, image1.height))
+    return final
+
+def get_image(path, width=1*cm):
+    img = utils.ImageReader(path)
+    iw, ih = img.getSize()
+    aspect = ih / float(iw)
+    return Image(path, width=width, height=(width * aspect))
 
 def pdfmaker(sector):
     df = df_cutter(master_df, sector)
@@ -241,7 +289,7 @@ def pdfmaker(sector):
     q = (len(page_1_table.columns) - 1, len(page_1_table))
     p1tab.setStyle(TableStyle([('BACKGROUND', (0, 0), (q[0], 0), colors.HexColor("#003087")),
                                     ('TEXTCOLOR', (0, 0), (q[0], 0), colors.HexColor("#E8EDEE")),
-                                    #('FONTSIZE', (0, 1), (q[0], q[1]), 8),
+                                    ('FONTSIZE', (0, 0), (q[0], q[1]), 8),
                                     ('ALIGN', (1, 0), (q[0], q[1]), 'CENTER'),
                                     ('BOX', (0, 1), (q[0], q[1]), 0.006 * inch, colors.HexColor("#003087")),
                                     ('BOX', (0, 0), (q[0], 0), 0.006 * inch, colors.HexColor("#003087"))
@@ -250,19 +298,15 @@ def pdfmaker(sector):
 
     page_1_bargraph(page_1_table, sector)
     page_1_stackedbar(page_1_table, sector)
-    image1 = img2.open('/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + '-page1-bar.png')
-    image2 = img2.open('/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + '-page1-stackedbar.png')
+    p1i1 = '/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + '-page1-bar.png'
+    p1i2 = '/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + '-page1-stackedbar.png'
 
-    page_1_graphs_combined = img2.new('RGB',(image1.width, image1.height + image2.height))
-    page_1_graphs_combined.paste(image1, (0,0))
-    page_1_graphs_combined.paste(image2, (0, image1.height))
+
+    page_1_graphs_combined = verticalimage_combine(p1i1, p1i2)
 
     page_1_graphs_combined = page_1_graphs_combined.resize((300, 500), img2.ANTIALIAS)
     page_1_graphs_combined.save('/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + 'page1_graphs.png')
     p1graphs = Image('/media/wdrive/Storyboards/Test_Boards/graphs/'+sector+'page1_graphs.png')
-
-    p1_barchart_file = Image('/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + '-page1-bar.png', 0.8 * w, h * 0.8)
-    p1_stackedbar_file = Image('/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + '-page1-stackedbar.png', w *0.8, h *0.8)
 
 
     p1_wrapper = Table([[p1graphs, p1tab]])
@@ -272,15 +316,18 @@ def pdfmaker(sector):
 
     ###    PAGE 2 DATA    ###
     page_2_table = page_2_piv(df)
-    p2tab = Table(np.vstack((list(page_2_table), np.array(page_2_table))).tolist())
+    p2tab = Table(np.vstack((list(page_2_table), np.array(page_2_table))).tolist(), colWidths=2 * cm)
     q = (len(page_2_table.columns) - 1, len(page_2_table))
     p2tab.setStyle(TableStyle([('BACKGROUND', (0, 0), (q[0], 0), colors.HexColor("#003087")),
                                ('TEXTCOLOR', (0, 0), (q[0], 0), colors.HexColor("#E8EDEE")),
-                               ('FONTSIZE', (0, 1), (q[0], q[1]), 8),
+                               ('FONTSIZE', (0, 0), (q[0], q[1]), 8),
                                ('ALIGN', (1, 0), (q[0], q[1]), 'CENTER'),
                                ('BOX', (0, 1), (q[0], q[1]), 0.006 * inch, colors.HexColor("#003087")),
                                ('BOX', (0, 0), (q[0], 0), 0.006 * inch, colors.HexColor("#003087"))
                                ]))
+    page_2_twoaxes(page_2_table, sector)
+    p2graph = get_image('/media/wdrive/Storyboards/Test_Boards/graphs/'+sector+'-page2-twoaxes.png', width = 4.5 * inch)
+    p2wrapper = Table([[p2graph, p2tab]])
 
     ###    PAGE 3 DATA    ###
     page_3_table = page_3_piv(df)
@@ -288,19 +335,33 @@ def pdfmaker(sector):
     page3_sickabsGraph(page_3_table, sector)
     page_3_otherleavegraph(page_3_table, sector)
     page3_annualleavegraph(page_3_table, sector)
-    p3_othergraph = Image('/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + '-page3-otherleave.png')
-    p3_sickabsgraph = Image('/media/wdrive/Storyboards/Test_Boards/graphs/'+sector+'-page3-sickabsgraph.png')
-    p3_annualgraph = Image('/media/wdrive/Storyboards/Test_Boards/graphs/'+sector+'-page3-annualleave.png')
+    p3i1 = '/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + '-page3-otherleave.png'
+    p3i2 = '/media/wdrive/Storyboards/Test_Boards/graphs/'+sector+'-page3-sickabsgraph.png'
+    p3i3 = '/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + '-page3-annualleave.png'
+    p3_graphs = verticalimage_combine(p3i1, p3i2)
+    p3_graphs.save('/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + 'page3_graphs.png')
+    p3_graphs = verticalimage_combine('/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + 'page3_graphs.png', p3i3)
+    p3_graphs = p3_graphs.resize((300, 500), img2.ANTIALIAS)
+    p3_graphs.save('/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + 'page3_graphs.png')
+    p3_graphs = Image('/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + 'page3_graphs.png')
 
-    p3tab = Table(np.vstack((list(page_3_table), np.array(page_3_table))).tolist())
+
+
+
+    # p3_othergraph = Image('/media/wdrive/Storyboards/Test_Boards/graphs/' + sector + '-page3-otherleave.png')
+    # p3_sickabsgraph = Image('/media/wdrive/Storyboards/Test_Boards/graphs/'+sector+'-page3-sickabsgraph.png')
+    # p3_annualgraph = Image('/media/wdrive/Storyboards/Test_Boards/graphs/'+sector+'-page3-annualleave.png')
+
+    p3tab = Table(np.vstack((list(page_3_table), np.array(page_3_table))).tolist(), colWidths=1.3 * cm)
     q = (len(page_3_table.columns) - 1, len(page_3_table))
     p3tab.setStyle(TableStyle([('BACKGROUND', (0, 0), (q[0], 0), colors.HexColor("#003087")),
                                ('TEXTCOLOR', (0, 0), (q[0], 0), colors.HexColor("#E8EDEE")),
-                               ('FONTSIZE', (0, 1), (q[0], q[1]), 8),
+                               ('FONTSIZE', (0, 0), (q[0], q[1]), 7),
                                ('ALIGN', (1, 0), (q[0], q[1]), 'CENTER'),
                                ('BOX', (0, 1), (q[0], q[1]), 0.006 * inch, colors.HexColor("#003087")),
                                ('BOX', (0, 0), (q[0], 0), 0.006 * inch, colors.HexColor("#003087"))
                                ]))
+    p3_wrapper = Table([[p3_graphs, p3tab]])
 
     ### PAGE 1 REPORT ###
     #main_pdf.append(p1tab)
@@ -309,10 +370,11 @@ def pdfmaker(sector):
     main_pdf.append(PageBreak())
 
     ### PAGE 2 REPORT ###
-    main_pdf.append(p2tab)
+    main_pdf.append(p2wrapper)
     main_pdf.append(PageBreak())
 
     ### PAGE 3 REPORT ###
+    main_pdf.append(p3_wrapper)
     # main_pdf.append(p3_sickabsgraph)
     # main_pdf.append(p3_othergraph)
     # main_pdf.append(p3_annualgraph)
